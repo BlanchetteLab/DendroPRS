@@ -17,7 +17,7 @@ GROUP_LASSO = True
 print('Using CUDA: ' + str(USE_CUDA))
 device = torch.device("cuda:0" if torch.cuda.is_available() and USE_CUDA else "cpu")
 
-# superpops order corresponds to cluster assignments - hard-coded for 1000 Genomes super-populations
+# superpops order corresponds to cluster assignments - hard-coded for 1000 Genomes super-populations with constant branch lengths
 tree_string = '((((AMR:1.00,EAS:1.00):1.00,SAS:1.00):1.00,EUR:1.00):1.00,AFR:1.00);'
 pops = ['AFR', 'EUR', 'SAS', 'EAS', 'AMR']
 
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # directory removal warning!
-    base_output_dir = os.path.join(os.path.abspath('.'), 'experiment_output_mt', args.output_dir)
+    base_output_dir = os.path.join(os.path.abspath('.'), 'experiment_output', args.output_dir)
     create_directory(base_output_dir, remove_curr=False)
 
     """
