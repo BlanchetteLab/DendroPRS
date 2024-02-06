@@ -22,7 +22,7 @@ tree_string = '((((AMR:1.00,EAS:1.00):1.00,SAS:1.00):1.00,EUR:1.00):1.00,AFR:1.0
 pops = ['AFR', 'EUR', 'SAS', 'EAS', 'AMR']
 
 # parameter settings, pointers to data files
-cluster_file = 'data/phase3_clusters.csv'
+cluster_file = 'example_data/phase3_clusters.csv'
 bias_in = True
 
 
@@ -35,18 +35,18 @@ def get_pheno_key(phenotype, pheno_keys):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--genotypes-file', type=str, default='example_data/ENSG00000175854_genotypes')
+    parser.add_argument('--genotypes-file', type=str, default='example_data/ENSG00000176014_genotypes')
     parser.add_argument('--phenotypes-file', type=str, default='example_data/example_phenotypes.csv')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--crossval-splits', type=int, default=5)
     parser.add_argument('--early-stopping', type=int, default=10, help='Number of epochs without improvement before early stopping')
     parser.add_argument('--validation-interval', type=int, default=1)
-    parser.add_argument('--dpf', type=float, default=0.1, help='scaling factor applied to delta term in the loss')
+    parser.add_argument('--dpf', type=float, default=0.001, help='scaling factor applied to delta term in the loss')
     parser.add_argument('--l1', type=float, default=1.0)
-    parser.add_argument('--group-lasso', type=float, default=1.0)
+    parser.add_argument('--group-lasso', type=float, default=0.0001)
     parser.add_argument('--p', type=int, default=1)
     parser.add_argument('--output-dir', type=str, default='eqtl_experiment')
-    parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--lr', type=float, default=0.001)
     args = parser.parse_args()
 
     # directory removal warning!
