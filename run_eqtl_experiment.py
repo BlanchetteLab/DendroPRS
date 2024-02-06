@@ -10,20 +10,12 @@ from scipy.stats import pearsonr
 from models import DendroPRS
 from utils import create_directory, split_indices
 from model_utils import build_parent_path_mat, newick_to_adjacency_matrix, IndicesDataset
-
-USE_CUDA = False
-L1_ROOTS = True
-GROUP_LASSO = True
-print('Using CUDA: ' + str(USE_CUDA))
-device = torch.device("cuda:0" if torch.cuda.is_available() and USE_CUDA else "cpu")
-
-# superpops order corresponds to cluster assignments - hard-coded for 1000 Genomes super-populations with constant branch lengths
+"""
+-hard-coded for 1000 Genomes super-populations with constant branch lengths
+-superpops order corresponds to cluster assignments
+"""
 tree_string = '((((AMR:1.00,EAS:1.00):1.00,SAS:1.00):1.00,EUR:1.00):1.00,AFR:1.00);'
 pops = ['AFR', 'EUR', 'SAS', 'EAS', 'AMR']
-
-# parameter settings, pointers to data files
-cluster_file = 'example_data/phase3_clusters.csv'
-bias_in = True
 
 
 def get_pheno_key(phenotype, pheno_keys):
@@ -37,17 +29,30 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--genotypes-file', type=str, default='example_data/ENSG00000176014_genotypes')
     parser.add_argument('--phenotypes-file', type=str, default='example_data/example_phenotypes.csv')
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--cluster-file', type=str, default='example_data/phase3_clusters.csv')
+    parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--crossval-splits', type=int, default=5)
-    parser.add_argument('--early-stopping', type=int, default=10, help='Number of epochs without improvement before early stopping')
+    parser.add_argument('--early-stopping', type=int, default=10, help='Num epochs without improvement to trigger early stopping')
     parser.add_argument('--validation-interval', type=int, default=1)
     parser.add_argument('--dpf', type=float, default=0.001, help='scaling factor applied to delta term in the loss')
-    parser.add_argument('--l1', type=float, default=1.0)
-    parser.add_argument('--group-lasso', type=float, default=0.0001)
+    parser.add_argument('--l1', type=float, default=0.01, help='scaling factor applied to root weights penalty')
+    parser.add_argument('--group-lasso', type=float, default=0.0001, help='scaling factor applied to group lasso per snp')
     parser.add_argument('--p', type=int, default=1)
     parser.add_argument('--output-dir', type=str, default='eqtl_experiment')
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--use-cuda', type=int, default=0, help="1->True ; 0->False")
+    parser.add_argument('--use-group-lasso', type=int, default=1, help="1->True ; 0->False")
+    parser.add_argument('--use-l1-roots', type=int, default=1, help="1->True ; 0->False")
+    parser.add_argument('--bias-in', type=int, default=1, help="1->True ; 0->False")
     args = parser.parse_args()
+
+
+    # setting the torch device
+    if args.use_cuda:
+        print('CUDA selected')
+    else:
+        print('Training on CPU')
+    device = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda == 1 else "cpu")
 
     # directory removal warning!
     base_output_dir = os.path.join(os.path.abspath('.'), 'experiment_output', args.output_dir)
@@ -57,7 +62,7 @@ if __name__ == '__main__':
     As we do not have phenotype data for all samples, we select the relevant portions of the 
     genome and cluster map files, based around the ID indices in the cluster map file
     """
-    cluster_map = pd.read_csv(cluster_file, sep='\t', header=None).to_numpy()
+    cluster_map = pd.read_csv(args.cluster_file, sep='\t', header=None).to_numpy()
 
     pheno_df = pd.read_csv(args.phenotypes_file)
 
@@ -93,7 +98,7 @@ if __name__ == '__main__':
     num_samples = genome.shape[0]
     assert y.shape[0] == num_samples
     # adding a bias feature to the genome data
-    if bias_in:
+    if bool(args.bias_in):
         genome = np.hstack((genome, np.expand_dims(np.asarray([1.0 for _ in range(num_samples)]), axis=0).transpose()))
 
     pp_ordered_nodes, parent_child_mat = newick_to_adjacency_matrix(tree_string, pops)
@@ -151,7 +156,7 @@ if __name__ == '__main__':
                                        p=args.p)
 
         loss_function = nn.MSELoss()
-        if torch.cuda.is_available() and USE_CUDA:
+        if torch.cuda.is_available() and bool(args.use_cuda):
             loss_function = loss_function.cuda()
         optimizer = torch.optim.Adam(dendronet.parameters(), lr=args.lr)
 
@@ -171,10 +176,10 @@ if __name__ == '__main__':
                 train_loss = loss_function(y_hat, y_tensor[idx_batch[:, 0]])
                 running_mse_loss += float(train_loss.detach().cpu().numpy())
                 loss = train_loss + (delta_loss * args.dpf)
-                if L1_ROOTS:
+                if bool(args.use_l1_roots):
                     l1_root = args.l1 * torch.norm(dendronet.root_weights, 1)
                     loss = loss + l1_root
-                if GROUP_LASSO:
+                if bool(args.use_group_lasso):
                     group_loss = dendronet.group_lasso() * args.group_lasso
                     loss = loss + group_loss
                 loss.backward(retain_graph=True)
